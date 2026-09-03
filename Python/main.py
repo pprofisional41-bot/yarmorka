@@ -1,17 +1,19 @@
+import asyncio
+import json
+import random
+import time
+import urllib.parse
+import urllib.request
+from typing import List, Optional
+import os
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List
-import time
-import random
-import urllib.request
-import urllib.parse
-import json
-import asyncio
 
-# Данные твоего бота Telegram
-TELEGRAM_BOT_TOKEN = "8228978987:AAEKndZqTzu4pdHVa-2ZvA1QGYoo2_6qHa4"
-TELEGRAM_CHAT_ID = "7217442345"
+# Токен и Chat ID берутся из переменных окружения Render или используются по умолчанию
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8228978987:AAEKndZqTzu4pdHVa-2ZvA1QGYoo2_6qHa4")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "7217442345")
 
 app = FastAPI(title="Ярмарка Меленки API")
 
@@ -33,7 +35,7 @@ products_db = [
 orders_db = {}
 
 def send_telegram_alert(order):
-    if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == "8228978987:AAEKndZqTzu4pdHVa-2ZvA1QGYoo2_6qHa4":
+    if not TELEGRAM_BOT_TOKEN:
         return
     
     items_text = "\n".join([f"• {i['title']} ({i['quantity']} шт)" for i in order["items"]])
@@ -73,7 +75,7 @@ def clean_expired_orders():
                         prod["stock"] += item["quantity"]
 
 async def telegram_polling_loop():
-    if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == "8228978987:AAEKndZqTzu4pdHVa-2ZvA1QGYoo2_6qHa4":
+    if not TELEGRAM_BOT_TOKEN:
         return
 
     try:
@@ -176,9 +178,11 @@ def create_order(data: CreateOrderInput):
     now = time.time()
     expires_at = now + 30 * 60
 
+    user_data = data.user.model_dump() if hasattr(data.user, 'model_dump') else data.user.dict()
+
     order = {
         "id": order_id,
-        "user": data.user.dict(),
+        "user": user_data,
         "items": order_items,
         "total": total_price,
         "status": "pending",
