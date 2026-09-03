@@ -23,7 +23,6 @@ const PRODUCT_IMAGES = {
   4: IMG_SWEATER
 };
 
-// Прокси через Vercel
 const API_URL = '/api';
 
 export default function App() {
@@ -77,12 +76,11 @@ export default function App() {
 
     const checkOrderStatus = async () => {
       try {
-        const rawId = completedOrder.rawId || completedOrder.id;
-        const cleanId = String(rawId).replace(/\D/g, '');
+        // Используем полный id (МЕЛ-1234), бэкенд умеет искать и по цифрам
+        const orderId = completedOrder.rawId || completedOrder.id;
+        if (!orderId) return;
 
-        if (!cleanId) return;
-
-        const response = await fetch(`${API_URL}/orders/${cleanId}?t=${Date.now()}`, {
+        const response = await fetch(`${API_URL}/orders/${encodeURIComponent(orderId)}?t=${Date.now()}`, {
           cache: 'no-store',
           headers: {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -90,12 +88,12 @@ export default function App() {
           }
         });
 
-        // ЕСЛИ СЕРВЕР ВЕРНУЛ 404 (значит, заказ удален/завершен в боте):
+        // 404 — заказ удалён/не найден
         if (response.status === 404) {
-          console.log("Заказ удален/завершен на сервере (404). Закрываем на сайте...");
+          console.log("Заказ не найден (404). Закрываем на сайте...");
           setCompletedOrder(null);
           fetchProducts();
-          window.location.href = '/'; // Переброс на главную страницу
+          window.location.href = '/';
           return;
         }
 
@@ -104,16 +102,17 @@ export default function App() {
           console.log("Ответ сервера по заказу:", data);
 
           const status = String(data.status || '').toLowerCase();
-          const isFinished = 
-            status === 'completed' || 
-            status === 'cancelled' || 
-            status === 'done' || 
-            status === 'issued' || 
-            status === 'closed' || 
+          const isFinished =
+            status === 'completed' ||
+            status === 'cancelled' ||
+            status === 'expired' ||
+            status === 'done' ||
+            status === 'issued' ||
+            status === 'closed' ||
             data.is_active === false;
 
           if (isFinished) {
-            console.log("Заказ завершен по статусу! Сбрасываем бронь...");
+            console.log("Заказ завершён по статусу! Сбрасываем бронь...");
             setCompletedOrder(null);
             fetchProducts();
             window.location.href = '/';
@@ -125,9 +124,10 @@ export default function App() {
     };
 
     const interval = setInterval(checkOrderStatus, 3000);
+    // Сразу один раз проверяем
+    checkOrderStatus();
     return () => clearInterval(interval);
   }, [completedOrder]);
-
 
   const displayedProducts = products.map(p => {
     const cartItem = cart.find(c => c.id === p.id);
@@ -217,11 +217,10 @@ export default function App() {
   const handleCancelOrder = async () => {
     if (!completedOrder) return;
 
-    const rawId = completedOrder.rawId || completedOrder.id;
-    const cleanId = String(rawId).replace(/\D/g, '');
+    const orderId = completedOrder.rawId || completedOrder.id;
 
     try {
-      await fetch(`${API_URL}/orders/${cleanId}/cancel`, {
+      await fetch(`${API_URL}/orders/${encodeURIComponent(orderId)}/cancel`, {
         method: 'POST'
       });
       alert('Заказ отменен');
@@ -238,23 +237,23 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route 
-          path="/" 
-          element={<CatalogPage products={displayedProducts} cart={cart} onAddToCart={handleAddToCart} />} 
+        <Route
+          path="/"
+          element={<CatalogPage products={displayedProducts} cart={cart} onAddToCart={handleAddToCart} />}
         />
-        <Route 
-          path="/cart" 
+        <Route
+          path="/cart"
           element={
-            <CartPage 
-              cart={cart} 
-              onIncrease={handleIncrease} 
-              onDecrease={handleDecrease} 
+            <CartPage
+              cart={cart}
+              onIncrease={handleIncrease}
+              onDecrease={handleDecrease}
               onRemove={handleRemove}
               onCheckout={handleCheckout}
               activeOrder={completedOrder}
               onCancelOrder={handleCancelOrder}
             />
-          } 
+          }
         />
       </Routes>
     </BrowserRouter>
