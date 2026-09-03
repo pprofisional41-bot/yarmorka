@@ -23,7 +23,6 @@ const PRODUCT_IMAGES = {
   4: IMG_SWEATER
 };
 
-// Изменено для проксирования через Vercel
 const API_URL = '/api';
 
 export default function App() {
@@ -72,34 +71,37 @@ export default function App() {
     }
   }, [completedOrder]);
 
+  // Автоматическая проверка статуса активного заказа каждые 3 секунды
+  useEffect(() => {
+    if (!completedOrder) return;
 
-  // Автоматическая проверка статуса активного заказа каждые 5 секунд
-useEffect(() => {
-  if (!completedOrder) return;
-
-  const checkOrderStatus = async () => {
-    try {
-      const response = await fetch(`${API_URL}/orders/${completedOrder.id}`);
-      if (response.ok) {
-        const data = await response.json();
-        // Если статус заказа в бэкенде изменился (завершен или отменен)
-        if (data.status === 'completed' || data.status === 'cancelled') {
+    const checkOrderStatus = async () => {
+      try {
+        const response = await fetch(`${API_URL}/orders/${completedOrder.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          // Проверяем все возможные варианты завершения или отмены заказа
+          if (
+            data.status === 'completed' || 
+            data.status === 'cancelled' || 
+            data.status === 'done' || 
+            data.is_active === false
+          ) {
+            setCompletedOrder(null);
+            fetchProducts();
+          }
+        } else if (response.status === 404) {
           setCompletedOrder(null);
-          fetchProducts(); // Обновляем остатки товаров
+          fetchProducts();
         }
-      } else if (response.status === 404) {
-        // Если заказ удален с бэкенда
-        setCompletedOrder(null);
-        fetchProducts();
+      } catch (error) {
+        console.error('Ошибка проверки статуса заказа:', error);
       }
-    } catch (error) {
-      console.error('Ошибка проверки статуса заказа:', error);
-    }
-  };
+    };
 
-  const interval = setInterval(checkOrderStatus, 5000);
-  return () => clearInterval(interval);
-}, [completedOrder]);
+    const interval = setInterval(checkOrderStatus, 3000);
+    return () => clearInterval(interval);
+  }, [completedOrder]);
 
   const displayedProducts = products.map(p => {
     const cartItem = cart.find(c => c.id === p.id);
@@ -147,6 +149,12 @@ useEffect(() => {
   };
 
   const handleCheckout = async (userInfo) => {
+    // Проверка на наличие активного заказа
+    if (completedOrder) {
+      alert('У вас уже есть активный заказ! Завершите или отмените его перед оформлением нового.');
+      return;
+    }
+
     try {
       const payload = {
         user: userInfo,
@@ -187,6 +195,7 @@ useEffect(() => {
       await fetch(`${API_URL}/orders/${completedOrder.id}/cancel`, {
         method: 'POST'
       });
+      alert('Заказ отменен');
     } catch (error) {
       console.error('Ошибка отмены брони:', error);
     } finally {
