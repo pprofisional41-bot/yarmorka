@@ -72,6 +72,35 @@ export default function App() {
     }
   }, [completedOrder]);
 
+
+  // Автоматическая проверка статуса активного заказа каждые 5 секунд
+useEffect(() => {
+  if (!completedOrder) return;
+
+  const checkOrderStatus = async () => {
+    try {
+      const response = await fetch(`${API_URL}/orders/${completedOrder.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        // Если статус заказа в бэкенде изменился (завершен или отменен)
+        if (data.status === 'completed' || data.status === 'cancelled') {
+          setCompletedOrder(null);
+          fetchProducts(); // Обновляем остатки товаров
+        }
+      } else if (response.status === 404) {
+        // Если заказ удален с бэкенда
+        setCompletedOrder(null);
+        fetchProducts();
+      }
+    } catch (error) {
+      console.error('Ошибка проверки статуса заказа:', error);
+    }
+  };
+
+  const interval = setInterval(checkOrderStatus, 5000);
+  return () => clearInterval(interval);
+}, [completedOrder]);
+
   const displayedProducts = products.map(p => {
     const cartItem = cart.find(c => c.id === p.id);
     const inCartCount = cartItem ? cartItem.quantity : 0;
