@@ -71,63 +71,8 @@ export default function App() {
     }
   }, [completedOrder]);
 
-  useEffect(() => {
-    if (!completedOrder) return;
-
-    const checkOrderStatus = async () => {
-      try {
-        // Используем полный id (МЕЛ-1234), бэкенд умеет искать и по цифрам
-        const orderId = completedOrder.rawId || completedOrder.id;
-        if (!orderId) return;
-
-        const response = await fetch(`${API_URL}/orders/${encodeURIComponent(orderId)}?t=${Date.now()}`, {
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache'
-          }
-        });
-
-        // 404 — заказ удалён/не найден
-        if (response.status === 404) {
-          console.log("Заказ не найден (404). Закрываем на сайте...");
-          setCompletedOrder(null);
-          fetchProducts();
-          window.location.href = '/';
-          return;
-        }
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Ответ сервера по заказу:", data);
-
-          const status = String(data.status || '').toLowerCase();
-          const isFinished =
-            status === 'completed' ||
-            status === 'cancelled' ||
-            status === 'expired' ||
-            status === 'done' ||
-            status === 'issued' ||
-            status === 'closed' ||
-            data.is_active === false;
-
-          if (isFinished) {
-            console.log("Заказ завершён по статусу! Сбрасываем бронь...");
-            setCompletedOrder(null);
-            fetchProducts();
-            window.location.href = '/';
-          }
-        }
-      } catch (error) {
-        console.error('Ошибка проверки статуса заказа:', error);
-      }
-    };
-
-    const interval = setInterval(checkOrderStatus, 3000);
-    // Сразу один раз проверяем
-    checkOrderStatus();
-    return () => clearInterval(interval);
-  }, [completedOrder]);
+  // Авто-опрос и авто-закрытие брони УБРАНЫ.
+  // Бронь снимается только кнопкой «Отмена брони».
 
   const displayedProducts = products.map(p => {
     const cartItem = cart.find(c => c.id === p.id);
@@ -220,12 +165,18 @@ export default function App() {
     const orderId = completedOrder.rawId || completedOrder.id;
 
     try {
-      await fetch(`${API_URL}/orders/${encodeURIComponent(orderId)}/cancel`, {
+      const response = await fetch(`${API_URL}/orders/${encodeURIComponent(orderId)}/cancel`, {
         method: 'POST'
       });
-      alert('Заказ отменен');
+
+      if (response.ok) {
+        alert('Заказ отменен, бронь снята');
+      } else {
+        alert('Не удалось отменить заказ');
+      }
     } catch (error) {
       console.error('Ошибка отмены брони:', error);
+      alert('Ошибка соединения с сервером');
     } finally {
       setCompletedOrder(null);
       fetchProducts();

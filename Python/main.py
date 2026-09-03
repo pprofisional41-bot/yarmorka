@@ -34,7 +34,6 @@ orders_db = {}
 
 
 def find_order(order_id: str):
-    """Ищем заказ и по полному id (МЕЛ-1234), и по цифрам (1234)"""
     order_id = str(order_id)
     if order_id in orders_db:
         return orders_db[order_id]
@@ -67,7 +66,7 @@ def send_telegram_alert(order):
 
     items_text = "\n".join([f"• {i['title']} ({i['quantity']} шт)" for i in order["items"]])
     message = (
-        f"⏱️ *НОВАЯ БРОНЬ (на 30 минут)!*\n\n"
+        f"⏱️ *НОВАЯ БРОНЬ (на 10 минут)!*\n\n"
         f"🎟 *Код:* `{order['id']}`\n"
         f"👤 *Имя:* {order['user']['name']}\n"
         f"📞 *Тел:* {order['user']['phone']}\n\n"
@@ -134,9 +133,9 @@ async def telegram_polling_loop():
                             order = find_order(order_id)
 
                             if order and order["status"] == "pending":
-                                # ВАЖНО: статус completed, stock НЕ возвращаем
                                 order["status"] = "completed"
                                 order["is_active"] = False
+                                # stock НЕ возвращаем
 
                                 edit_payload = {
                                     "chat_id": chat_id,
@@ -215,7 +214,7 @@ def create_order(data: CreateOrderInput):
 
     order_id = f"МЕЛ-{random.randint(1000, 9999)}"
     now = time.time()
-    expires_at = now + 30 * 60  # 30 минут
+    expires_at = now + 10 * 60  # 10 минут
 
     user_data = data.user.model_dump() if hasattr(data.user, "model_dump") else data.user.dict()
 
@@ -276,6 +275,5 @@ def complete_order(order_id: str):
     if order["status"] == "pending":
         order["status"] = "completed"
         order["is_active"] = False
-        # stock НЕ возвращаем — товар выдан
 
     return {"status": "ok", "message": "Заказ выполнен"}
