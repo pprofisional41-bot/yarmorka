@@ -23,6 +23,7 @@ const PRODUCT_IMAGES = {
   4: IMG_SWEATER
 };
 
+// Прокси через Vercel
 const API_URL = '/api';
 
 export default function App() {
@@ -71,41 +72,40 @@ export default function App() {
     }
   }, [completedOrder]);
 
-  // Автоматическая проверка статуса активного заказа каждые 3 секунды
-useEffect(() => {
-  if (!completedOrder) return;
+  // Автоматическая проверка статуса заказа в Telegram каждые 3 секунды
+  useEffect(() => {
+    if (!completedOrder) return;
 
-  const checkOrderStatus = async () => {
-    try {
-      // Отправляем rawId (чистое число/строку), а не префикс "МЕЛ-..."
-      const targetId = completedOrder.rawId || completedOrder.id;
-      
-      const response = await fetch(`${API_URL}/orders/${targetId}`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (
-          data.status === 'completed' || 
-          data.status === 'cancelled' || 
-          data.status === 'done' || 
-          data.is_active === false
-        ) {
-          setCompletedOrder(null);
-          fetchProducts();
+    const checkOrderStatus = async () => {
+      try {
+        // Очищаем ID от букв "МЕЛ-", оставшаяся часть — чистый цифровой ID для бэкенда
+        const rawId = completedOrder.rawId || completedOrder.id;
+        const cleanId = String(rawId).replace(/\D/g, '');
+
+        if (!cleanId) return;
+
+        const response = await fetch(`${API_URL}/orders/${cleanId}`);
+        if (response.ok) {
+          const data = await response.json();
+          // Проверяем, изменился ли статус заказа в боте
+          if (
+            data.status === 'completed' || 
+            data.status === 'cancelled' || 
+            data.status === 'done' || 
+            data.is_active === false
+          ) {
+            setCompletedOrder(null);
+            fetchProducts();
+          }
         }
-      } else if (response.status === 404) {
-        // Если сервера возвращает 404, заказ завершен/удален — закрываем плашку
-        setCompletedOrder(null);
-        fetchProducts();
+      } catch (error) {
+        console.error('Ошибка проверки статуса заказа:', error);
       }
-    } catch (error) {
-      console.error('Ошибка проверки статуса заказа:', error);
-    }
-  };
+    };
 
-  const interval = setInterval(checkOrderStatus, 3000);
-  return () => clearInterval(interval);
-}, [completedOrder]);
+    const interval = setInterval(checkOrderStatus, 3000);
+    return () => clearInterval(interval);
+  }, [completedOrder]);
 
   const displayedProducts = products.map(p => {
     const cartItem = cart.find(c => c.id === p.id);
@@ -153,7 +153,6 @@ useEffect(() => {
   };
 
   const handleCheckout = async (userInfo) => {
-    // Проверка на наличие активного заказа
     if (completedOrder) {
       alert('У вас уже есть активный заказ! Завершите или отмените его перед оформлением нового.');
       return;
@@ -178,10 +177,9 @@ useEffect(() => {
       }
 
       const orderData = await response.json();
-
       const formattedOrder = {
         ...orderData,
-        rawId: orderData.id,
+        rawId: orderData.id, // Сохраняем чистый ID от сервера
         expiresAt: orderData.expires_at * 1000
       };
 
@@ -197,8 +195,11 @@ useEffect(() => {
   const handleCancelOrder = async () => {
     if (!completedOrder) return;
 
+    const rawId = completedOrder.rawId || completedOrder.id;
+    const cleanId = String(rawId).replace(/\D/g, '');
+
     try {
-      await fetch(`${API_URL}/orders/${completedOrder.id}/cancel`, {
+      await fetch(`${API_URL}/orders/${cleanId}/cancel`, {
         method: 'POST'
       });
       alert('Заказ отменен');
