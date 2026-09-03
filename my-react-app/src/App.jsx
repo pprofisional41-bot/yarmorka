@@ -23,7 +23,8 @@ const PRODUCT_IMAGES = {
   4: IMG_SWEATER
 };
 
-const API_URL = 'http://127.0.0.1:8000/api';
+// Изменено для проксирования через Vercel
+const API_URL = '/api';
 
 export default function App() {
   const [loading, setLoading] = useState(true);
@@ -42,7 +43,6 @@ export default function App() {
       const response = await fetch(`${API_URL}/products`);
       if (response.ok) {
         const data = await response.json();
-        // Внедряем картинку по ID товара из бэкенда
         const productsWithImages = data.map(item => ({
           ...item,
           image: PRODUCT_IMAGES[item.id] || IMG_CAT
