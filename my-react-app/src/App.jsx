@@ -40,7 +40,7 @@ export default function App() {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch(`${API_URL}/products`);
+      const response = await fetch(`${API_URL}/products?t=${Date.now()}`, { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         const productsWithImages = data.map(item => ({
@@ -72,30 +72,51 @@ export default function App() {
     }
   }, [completedOrder]);
 
-  // Автоматическая проверка статуса заказа в Telegram каждые 3 секунды
   useEffect(() => {
     if (!completedOrder) return;
 
     const checkOrderStatus = async () => {
       try {
-        // Очищаем ID от букв "МЕЛ-", оставшаяся часть — чистый цифровой ID для бэкенда
         const rawId = completedOrder.rawId || completedOrder.id;
         const cleanId = String(rawId).replace(/\D/g, '');
 
         if (!cleanId) return;
 
-        const response = await fetch(`${API_URL}/orders/${cleanId}`);
+        const response = await fetch(`${API_URL}/orders/${cleanId}?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        });
+
+        // ЕСЛИ СЕРВЕР ВЕРНУЛ 404 (значит, заказ удален/завершен в боте):
+        if (response.status === 404) {
+          console.log("Заказ удален/завершен на сервере (404). Закрываем на сайте...");
+          setCompletedOrder(null);
+          fetchProducts();
+          window.location.href = '/'; // Переброс на главную страницу
+          return;
+        }
+
         if (response.ok) {
           const data = await response.json();
-          // Проверяем, изменился ли статус заказа в боте
-          if (
-            data.status === 'completed' || 
-            data.status === 'cancelled' || 
-            data.status === 'done' || 
-            data.is_active === false
-          ) {
+          console.log("Ответ сервера по заказу:", data);
+
+          const status = String(data.status || '').toLowerCase();
+          const isFinished = 
+            status === 'completed' || 
+            status === 'cancelled' || 
+            status === 'done' || 
+            status === 'issued' || 
+            status === 'closed' || 
+            data.is_active === false;
+
+          if (isFinished) {
+            console.log("Заказ завершен по статусу! Сбрасываем бронь...");
             setCompletedOrder(null);
             fetchProducts();
+            window.location.href = '/';
           }
         }
       } catch (error) {
@@ -106,6 +127,7 @@ export default function App() {
     const interval = setInterval(checkOrderStatus, 3000);
     return () => clearInterval(interval);
   }, [completedOrder]);
+
 
   const displayedProducts = products.map(p => {
     const cartItem = cart.find(c => c.id === p.id);
@@ -179,7 +201,7 @@ export default function App() {
       const orderData = await response.json();
       const formattedOrder = {
         ...orderData,
-        rawId: orderData.id, // Сохраняем чистый ID от сервера
+        rawId: orderData.id,
         expiresAt: orderData.expires_at * 1000
       };
 
