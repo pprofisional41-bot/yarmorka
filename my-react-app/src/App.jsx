@@ -77,25 +77,24 @@ useEffect(() => {
 
   const checkOrderStatus = async () => {
     try {
-      const response = await fetch(`${API_URL}/orders/${completedOrder.id}`);
+      // Отправляем rawId (чистое число/строку), а не префикс "МЕЛ-..."
+      const targetId = completedOrder.rawId || completedOrder.id;
+      
+      const response = await fetch(`${API_URL}/orders/${targetId}`);
+      
       if (response.ok) {
         const data = await response.json();
-        
-        // Выводим в консоль статус от бэкенда для проверки
-        console.log("Данные заказа с сервера:", data);
-
         if (
           data.status === 'completed' || 
           data.status === 'cancelled' || 
           data.status === 'done' || 
           data.is_active === false
         ) {
-          console.log("Статус изменился! Закрываем заказ...");
           setCompletedOrder(null);
           fetchProducts();
         }
       } else if (response.status === 404) {
-        console.log("Заказ не найден (404). Закрываем...");
+        // Если сервера возвращает 404, заказ завершен/удален — закрываем плашку
         setCompletedOrder(null);
         fetchProducts();
       }
@@ -179,8 +178,10 @@ useEffect(() => {
       }
 
       const orderData = await response.json();
+
       const formattedOrder = {
         ...orderData,
+        rawId: orderData.id,
         expiresAt: orderData.expires_at * 1000
       };
 
