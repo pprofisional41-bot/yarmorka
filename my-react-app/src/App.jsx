@@ -72,36 +72,41 @@ export default function App() {
   }, [completedOrder]);
 
   // Автоматическая проверка статуса активного заказа каждые 3 секунды
-  useEffect(() => {
-    if (!completedOrder) return;
+useEffect(() => {
+  if (!completedOrder) return;
 
-    const checkOrderStatus = async () => {
-      try {
-        const response = await fetch(`${API_URL}/orders/${completedOrder.id}`);
-        if (response.ok) {
-          const data = await response.json();
-          // Проверяем все возможные варианты завершения или отмены заказа
-          if (
-            data.status === 'completed' || 
-            data.status === 'cancelled' || 
-            data.status === 'done' || 
-            data.is_active === false
-          ) {
-            setCompletedOrder(null);
-            fetchProducts();
-          }
-        } else if (response.status === 404) {
+  const checkOrderStatus = async () => {
+    try {
+      const response = await fetch(`${API_URL}/orders/${completedOrder.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Выводим в консоль статус от бэкенда для проверки
+        console.log("Данные заказа с сервера:", data);
+
+        if (
+          data.status === 'completed' || 
+          data.status === 'cancelled' || 
+          data.status === 'done' || 
+          data.is_active === false
+        ) {
+          console.log("Статус изменился! Закрываем заказ...");
           setCompletedOrder(null);
           fetchProducts();
         }
-      } catch (error) {
-        console.error('Ошибка проверки статуса заказа:', error);
+      } else if (response.status === 404) {
+        console.log("Заказ не найден (404). Закрываем...");
+        setCompletedOrder(null);
+        fetchProducts();
       }
-    };
+    } catch (error) {
+      console.error('Ошибка проверки статуса заказа:', error);
+    }
+  };
 
-    const interval = setInterval(checkOrderStatus, 3000);
-    return () => clearInterval(interval);
-  }, [completedOrder]);
+  const interval = setInterval(checkOrderStatus, 3000);
+  return () => clearInterval(interval);
+}, [completedOrder]);
 
   const displayedProducts = products.map(p => {
     const cartItem = cart.find(c => c.id === p.id);
