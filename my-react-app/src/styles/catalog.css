@@ -1,0 +1,83 @@
+.catalog-header {
+  position: relative;
+  padding: 3.5rem 1.5rem;
+  border-radius: 1.75rem;
+  text-align: center;
+  background: radial-gradient(circle at 50% 0%, rgba(245, 158, 11, 0.18) 0%, rgba(24, 27, 34, 0.9) 70%),
+              #181b22;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.badge-main {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.4rem 1.2rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.catalog-title {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 800;
+  margin: 1.25rem 0 0.75rem 0;
+  color: #ffffff;
+  line-height: 1.1;
+}
+
+.catalog-subtitle {
+  color: #9ca3af;
+  max-width: 36rem;
+  margin: 0 auto 1.5rem auto;
+  line-height: 1.6;
+  font-size: 1rem;
+}
+
+.header-features {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.feature-tag {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.4rem 0.9rem;
+  border-radius: 0.75rem;
+  font-size: 0.8rem;
+  color: #d1d5db;
+}
+
+.catalog-filters {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 2.5rem 0;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  opacity: 0.6;
+  transition: opacity 0.25s ease;
+}
+
+.filter-btn.active {
+  opacity: 1;
+}
+
+/* Автоматическая ровная сетка: 4 колонки на мониторе, 2 на планшете, 1 на смартфоне */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.5rem;
+  width: 100%;
+}
