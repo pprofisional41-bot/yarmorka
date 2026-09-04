@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import CatalogPage from './pages/CatalogPage';
 import CartPage from './pages/CartPage';
 import Loader from './components/Loader';
@@ -25,7 +25,11 @@ const PRODUCT_IMAGES = {
 
 const API_URL = '/api';
 
-export default function App() {
+// Выносим основное содержимое приложения в отдельный компонент, 
+// чтобы работал хук useNavigate() внутри контекста BrowserRouter
+function MainContent() {
+  const navigate = useNavigate();
+
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState(() => {
@@ -71,8 +75,61 @@ export default function App() {
     }
   }, [completedOrder]);
 
-  // Авто-опрос и авто-закрытие брони УБРАНЫ.
-  // Бронь снимается только кнопкой «Отмена брони».
+  // Возвращаем надежный опрос бэкенда каждые 3 секунды.
+  // Как только бот нажмет кнопку выдан/завершен или заказ удалится (404), 
+  // сайт мгновенно сбросит бронь, обновит товары и перебросит на главную.
+  useEffect(() => {
+    if (!completedOrder) return;
+
+    const checkOrderStatus = async () => {
+      try {
+        const rawId = completedOrder.rawId || completedOrder.id;
+        const cleanId = String(rawId).replace(/\D/g, '');
+        if (!cleanId) return;
+
+        const response = await fetch(`${API_URL}/orders/${cleanId}?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        });
+
+        // Если заказ удален на бэкенде (возвращается 404)
+        if (response.status === 404) {
+          setCompletedOrder(null);
+          localStorage.removeItem('fair_active_order');
+          fetchProducts();
+          navigate('/');
+          return;
+        }
+
+        if (response.ok) {
+          const data = await response.json();
+          const status = String(data.status || '').toLowerCase();
+          const isFinished = 
+            status === 'completed' || 
+            status === 'cancelled' || 
+            status === 'done' || 
+            status === 'issued' || 
+            status === 'closed' || 
+            data.is_active === false;
+
+          if (isFinished) {
+            setCompletedOrder(null);
+            localStorage.removeItem('fair_active_order');
+            fetchProducts();
+            navigate('/');
+          }
+        }
+      } catch (error) {
+        console.error('Ошибка проверки статуса заказа:', error);
+      }
+    };
+
+    const interval = setInterval(checkOrderStatus, 3000);
+    return () => clearInterval(interval);
+  }, [completedOrder, navigate]);
 
   const displayedProducts = products.map(p => {
     const cartItem = cart.find(c => c.id === p.id);
@@ -179,34 +236,42 @@ export default function App() {
       alert('Ошибка соединения с сервером');
     } finally {
       setCompletedOrder(null);
+      localStorage.removeItem('fair_active_order');
       fetchProducts();
+      navigate('/');
     }
   };
 
   if (loading) return <Loader />;
 
   return (
+    <Routes>
+      <Route
+        path="/"
+        element={<CatalogPage products={displayedProducts} cart={cart} onAddToCart={handleAddToCart} />}
+      />
+      <Route
+        path="/cart"
+        element={
+          <CartPage
+            cart={cart}
+            onIncrease={handleIncrease}
+            onDecrease={handleDecrease}
+            onRemove={handleRemove}
+            onCheckout={handleCheckout}
+            activeOrder={completedOrder}
+            onCancelOrder={handleCancelOrder}
+          />
+        }
+      />
+    </Routes>
+  );
+}
+
+export default function App() {
+  return (
     <BrowserRouter>
-      <Routes>
-        <Route
-          path="/"
-          element={<CatalogPage products={displayedProducts} cart={cart} onAddToCart={handleAddToCart} />}
-        />
-        <Route
-          path="/cart"
-          element={
-            <CartPage
-              cart={cart}
-              onIncrease={handleIncrease}
-              onDecrease={handleDecrease}
-              onRemove={handleRemove}
-              onCheckout={handleCheckout}
-              activeOrder={completedOrder}
-              onCancelOrder={handleCancelOrder}
-            />
-          }
-        />
-      </Routes>
+      <MainContent />
     </BrowserRouter>
   );
 }
